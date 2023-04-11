@@ -3,98 +3,102 @@ import axios from "axios";
 
 //constants
 import BOOK_NAME from "constants/book";
+import {
+  CitationRegExp,
+  CitationRegExpSecondary,
+  CitationRegExpTertiary,
+  CitationRegExpTertiary2,
+} from "regex";
 
 function Verse() {
   const [chapter, setChapter] = useState("");
   const [result, setResult] = useState([]);
   const [count, setCount] = useState(0);
+  const [citations, setCitations] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const getChapterTitle = async function () {
-    setIsLoading(true);
-    setResult([]);
+  const splitContent = function (content) {
+    if (content.match("\n")) {
+      return content.split("\n");
+    } else if (content.match(", ")) {
+      return content.split(", ");
+    }
+
+    throw "split error";
+  };
+
+  const extractCitation = function (contents) {
+    return contents
+      .map(function (content) {
+        if (CitationRegExp.test(content)) {
+          return content.match(CitationRegExp)[0];
+        }
+
+        if (CitationRegExpSecondary.test(content)) {
+          return content.match(CitationRegExpSecondary)[0];
+        }
+
+        if (CitationRegExpTertiary.test(content)) {
+          return content.match(CitationRegExpTertiary)[0];
+        }
+
+        if (CitationRegExpTertiary2.test(content)) {
+          return content.match(CitationRegExpTertiary2)[0];
+        }
+
+        return null;
+      })
+      .filter((item) => item);
+  };
+
+  const getVerseOfChapter = async function (index) {
     try {
-      const options = {
-        url: `/api/chapter/verse?count=${count}`,
-        method: "POST",
-        data: {
-          book: BOOK_NAME[count].name,
-          chapters: BOOK_NAME[count].chapters,
-        },
-      };
+      const response = await axios.post(`/api/chapter/verse`, {
+        chapters: BOOK_NAME[index].chapters,
+        book: BOOK_NAME[index].name,
+      });
 
-      const response = await axios(options);
-      console.log(response);
       const content = response.data[0].message.content;
-      let chapterLength; // 장수
+      const splittedContent = splitContent(content);
+      const onlyCitation = extractCitation(splittedContent);
 
-      //장수 생성
-      if (content.match("\n")) {
-        chapterLength = content.split("\n").length;
-      } else if (content.match(", ")) {
-        chapterLength = content.split(", ").length;
-      }
+      console.log(splittedContent);
+      console.log(onlyCitation);
 
-      if (chapterLength !== BOOK_NAME[count].chapters) {
+      if (onlyCitation.length !== BOOK_NAME[index].chapters) {
         throw "retry";
       }
 
-      let filterResult = content;
+      const finalData = {
+        number: index,
+        data: [...onlyCitation],
+      };
 
-      if (filterResult.match("-")) {
-        let splittedResult;
+      console.log(finalData);
 
-        if (content.match("\n")) {
-          splittedResult = content.split("\n");
-        } else if (content.match(", ")) {
-          splittedResult = content.split(", ");
-        }
+      setCitations((current) =>
+        [...current, finalData].sort(function (a, b) {
+          let aNum = a.number;
+          let bNum = b.number;
+          if (aNum < bNum) {
+            return -1;
+          }
 
-        splittedResult = splittedResult.map(function (title) {
-          const index = title.indexOf("-");
-          const slicedTitle = title.slice(index + 1);
+          if (aNum > bNum) {
+            return 1;
+          }
 
-          return slicedTitle;
-        });
+          return 0;
+        })
+      );
 
-        console.log(splittedResult);
-        setResult(splittedResult);
-        setCount((current) => current + 1);
-        return;
-      }
-
-      let filteredDash = filterResult.replaceAll(":", "");
-      let filterChapter = filteredDash.replaceAll(chapter, "");
-      let filterComma = filterChapter.replaceAll('"', "");
-      let filterDash = filterComma.replaceAll("-", "");
-
-      for (let i = 0; i < chapterLength; i++) {
-        filterDash = filterDash.replaceAll(`${i}장`, "");
-        filterDash = filterDash.replaceAll(`${i}.`, "");
-      }
-
-      for (let i = 0; i < chapterLength; i++) {
-        filterDash = filterDash.replaceAll(`${i}`, "");
-      }
-
-      console.log(filterResult);
-
-      if (filterResult.match("\n")) {
-        setResult(filterDash.split("\n"));
-      } else if (filterResult.match(",")) {
-        setResult(filterDash.split(", "));
-      }
       setCount((current) => current + 1);
     } catch (error) {
-      if (error === "retry") {
-        getChapterTitle();
-        return;
+      console.log(error);
+      if (error) {
+        getVerseOfChapter(index);
       }
-
-      alert(error.message);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -158,82 +162,32 @@ function Verse() {
     }
   };
 
+  const getAllChapterVerse = function () {
+    BOOK_NAME.forEach(function (book, index) {
+      setTimeout(function () {
+        getVerseOfChapter(index);
+      }, index * 1000);
+    });
+  };
+
+  const exportAllToCsv = function () {
+    citations.forEach(function (book) {
+      exportTableToCsv(
+        `table${book.number}`,
+        `${book.number}_${BOOK_NAME[book.number].name}_대표구절`
+      );
+    });
+  };
+
   useEffect(
     function () {
-      if (result.length) {
-        exportTableToCsv(
-          "table",
-          `${count}_${BOOK_NAME[count !== 0 ? count - 1 : 0].name}`
-        );
-        getChapterTitle();
+      if (count !== 0) {
+        exportTableToCsv("table", "대표구절");
+        getVerseOfChapter(count);
       }
     },
-    [result]
+    [count]
   );
-
-  const filterBook = function (book) {
-    let chapterLength; // 장수
-
-    //장수 생성
-    if (book.match("\n")) {
-      chapterLength = book.split("\n").length;
-    } else if (book.match(", ")) {
-      chapterLength = book.split(", ").length;
-    }
-
-    if (chapterLength !== BOOK_NAME[count].chapters) {
-      throw "retry";
-    }
-
-    let filterResult = book;
-
-    if (filterResult.match("-")) {
-      let splittedResult;
-
-      if (book.match("\n")) {
-        splittedResult = book.split("\n");
-      } else if (book.match(", ")) {
-        splittedResult = book.split(", ");
-      }
-
-      splittedResult = splittedResult.map(function (title) {
-        const index = title.indexOf("-");
-        const slicedTitle = title.slice(index + 1);
-
-        return slicedTitle;
-      });
-
-      console.log(splittedResult);
-      return splittedResult;
-    }
-
-    let filteredDash = filterResult.replaceAll(":", "");
-    let filterChapter = filteredDash.replaceAll(chapter, "");
-    let filterComma = filterChapter.replaceAll('"', "");
-    let filterDash = filterComma.replaceAll("-", "");
-
-    for (let i = 0; i < chapterLength; i++) {
-      filterDash = filterDash.replaceAll(`${i}장`, "");
-      filterDash = filterDash.replaceAll(`${i}.`, "");
-    }
-
-    for (let i = 0; i < chapterLength; i++) {
-      filterDash = filterDash.replaceAll(`${i}`, "");
-    }
-
-    console.log(filterResult);
-
-    if (filterResult.match("\n")) {
-      return filterDash.split("\n");
-    } else if (filterResult.match(",")) {
-      return filterDash.split(", ");
-    }
-  };
-
-  const fastGetter = async function () {
-    try {
-    } catch (error) {}
-  };
 
   return (
     <div className="min-w-full flex flex-col items-center">
@@ -253,41 +207,66 @@ function Verse() {
       /> */}
       <div className="mt-3" />
       <button
-        onClick={getChapterTitle}
+        onClick={function () {
+          getVerseOfChapter(count);
+        }}
         className="bg-blue-500 px-6 py-4 min-w-[300px] text-white rounded-lg disabled:bg-LightGrey"
       >
-        {isLoading ? "로딩중..." : "제목 뽑기"}
+        {isLoading ? "로딩중..." : "하이라이트 구절 추출하기"}
       </button>
-      <div className="mt-6" />
+      <div className="mt-3" />
       <button
-        className="bg-blue-500 border py-3 mb-3 rounded-md text-white px-4"
+        onClick={getAllChapterVerse}
+        className="bg-blue-500 px-6 py-4 min-w-[300px] text-white rounded-lg disabled:bg-LightGrey"
+      >
+        {isLoading ? "로딩중..." : "전체 하이라이트 구절 추출하기"}
+      </button>
+      <div className="mt-3" />
+      <button
+        className="bg-green-500 px-6 py-4 min-w-[300px] text-white rounded-lg disabled:bg-LightGrey"
         onClick={function () {
-          exportTableToCsv("table", chapter);
+          exportTableToCsv("table", "대표구절");
         }}
       >
         다운로드
       </button>
+      <div className="mt-3" />
+      <button
+        className="bg-green-500 px-6 py-4 min-w-[300px] text-white rounded-lg disabled:bg-LightGrey"
+        onClick={exportAllToCsv}
+      >
+        전체 다운로드
+      </button>
       <div className="flex flex-col">
         <div className="mt-6" />
         <div className="flex flex-col gap-1">
-          <table id="table">
-            <thead>
-              <tr>
-                <th>chapter</th>
-                <th>title</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.map(function (title, index) {
-                return (
-                  <tr key={index + "장"}>
-                    <td>{index + 1}장</td>
-                    <td>{title}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <>
+            {/* <h1>{BOOK_NAME[book.number].name}</h1> */}
+            <table id={`table`}>
+              <thead>
+                <tr>
+                  <th>chapter</th>
+                  <th>citation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {citations.map(function (book, index) {
+                  return (
+                    <>
+                      {book?.data?.map(function (citation, index) {
+                        return (
+                          <tr key={index + "장"}>
+                            <td>{index + 1}장</td>
+                            <td>{citation}</td>
+                          </tr>
+                        );
+                      })}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
           {/* <h1 className="font-bold text-2xl mt-6 mb-2">{chapter}</h1>
           <p>{result}</p> */}
         </div>
