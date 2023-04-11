@@ -6,6 +6,8 @@ const configuration = new Configuration({
 });
 
 export default async function (req, res) {
+  const API_KEY = process.env.API_KEY;
+
   const citation = req.body.citation;
   const verse = req.body.verse;
   const count = req.body.count ?? 1;
@@ -18,8 +20,7 @@ export default async function (req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${API_KEY}`,
       },
       data: {
         model: "gpt-3.5-turbo",
@@ -39,8 +40,7 @@ export default async function (req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${API_KEY}`,
       },
       data: {
         model: "gpt-3.5-turbo",
@@ -60,8 +60,7 @@ export default async function (req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${API_KEY}`,
       },
       data: {
         model: "gpt-3.5-turbo",
@@ -81,8 +80,7 @@ export default async function (req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${API_KEY}`,
       },
       data: {
         model: "gpt-3.5-turbo",
@@ -102,8 +100,7 @@ export default async function (req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization:
-          "Bearer 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",
+        Authorization: `Bearer ${API_KEY}`,
       },
       data: {
         model: "gpt-3.5-turbo",
