@@ -24,7 +24,7 @@ export default async function (req, res) {
       },
       data: {
         model: "gpt-3.5-turbo",
-        temperature: 1,
+        temperature: 1.2,
         n: count,
         messages: [
           {
@@ -49,7 +49,7 @@ export default async function (req, res) {
         messages: [
           {
             role: "user",
-            content: `성경 구절 ${citation}를 목사 입장에서 해석해줘. 반드시 KRV(개역한글) 번역본에 맞는 용어를 써줘. KRV 번역본은 다음과 같아: ${verse}`,
+            content: `성경 구절 ${citation}이 성경에서 뜻하는 바를 목사 입장에서 최대한 길게 해석해줘. 반드시 KRV(개역한글) 번역본에 맞는 용어를 써줘. KRV 번역본은 다음과 같아: ${verse}`,
           },
         ],
       },
@@ -116,7 +116,7 @@ export default async function (req, res) {
     };
 
     const [title, explaination, message, reflection, prayer] =
-      await Promise.allSettled([
+      await Promise.all([
         axios(titleOptions),
         axios(explainationOption),
         axios(messageOption),
@@ -125,16 +125,20 @@ export default async function (req, res) {
       ]);
 
     const payload = {
-      title: title?.value?.data.choices,
-      explaination: explaination?.value?.data.choices,
-      message: message?.value?.data.choices,
-      reflection: reflection?.value?.data.choices,
-      prayer: prayer?.value?.data.choices,
+      title: title?.data.choices,
+      explaination: explaination?.data.choices,
+      message: message?.data.choices,
+      reflection: reflection?.data.choices,
+      prayer: prayer?.data.choices,
     };
 
     res.send(payload);
   } catch (error) {
-    console.log(error);
+    console.log(error.response.status);
+    if (error.status === 401) {
+      res.status(401).send("fail");
+    }
+
     res.status(500).send("fail");
   }
 }
